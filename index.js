@@ -79,12 +79,32 @@ async function connectToWhatsApp() {
   let isReconnecting = false;
   sock.ev.on('creds.update', saveCreds);
 
-sock.ev.on('connection.update', async (update) => {
+  // Lógica de Pareamento por Código para Railway
+  if (!sock.authState.creds.registered) {
+    // Você pode definir seu número aqui ou ele pedirá no console
+    // Para facilitar, vou deixar um aviso nos logs
+    console.log("⚠️ DISPOSITIVO NÃO CONECTADO!");
+    console.log("👉 Para conectar via CÓDIGO (mais fácil no Railway):");
+    console.log("1. No WhatsApp: Configurações > Dispositivos Conectados > Conectar um dispositivo");
+    console.log("2. Selecione 'Conectar com número de telefone'");
+    
+    // Altere para o seu número com DDI e DDD (ex: 5511999999999)
+    const phoneNumber = "5511963534626"; // Número admin padrão
+    
+    setTimeout(async () => {
+        try {
+            const code = await sock.requestPairingCode(phoneNumber);
+            console.log(`\n🚀 SEU CÓDIGO DE PAREAMENTO: ${code}\n`);
+        } catch (err) {
+            console.error("Erro ao solicitar código:", err);
+        }
+    }, 5000);
+  }
+
+  sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
-      console.log('📱 NOVO QR CODE GERADO!');
-      console.log('👉 Escaneie a imagem em: qrcode.png ou abaixo:');
-      qrcodeImage.toFile('./qrcode.png', qr, { scale: 8 });
+      console.log('📱 QR CODE GERADO (caso prefira):');
       qrcode.generate(qr, {small: true});
     }
     if (connection === 'close') {
