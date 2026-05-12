@@ -1,0 +1,64 @@
+<svg width="400" height="800" viewBox="0 0 400 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Phone Frame -->
+  <rect x="25" y="10" width="350" height="780" rx="40" fill="#1A1A1A" stroke="#333" stroke-width="4"/>
+  <rect x="35" y="20" width="330" height="760" rx="32" fill="#0B141A"/> <!-- WhatsApp Dark Mode BG -->
+  
+  <!-- Notch -->
+  <rect x="150" y="20" width="100" height="30" rx="15" fill="#1A1A1A"/>
+  
+  <!-- WhatsApp Header -->
+  <rect x="35" y="50" width="330" height="60" fill="#202C33"/>
+  <circle cx="70" cy="80" r="18" fill="#6A737D"/> <!-- Profile Pic -->
+  <text x="100" y="85" fill="white" style="font-family: Arial; font-size: 14px; font-weight: bold;">🤖 DSD Bot</text>
+  
+  <!-- Chat Messages Area -->
+  <g transform="translate(50, 130)">
+    <!-- User Message -->
+    <path d="M120 0H280C287 0 293 6 293 13V40C293 47 287 53 280 53H120C113 53 107 47 107 40V13C107 6 113 0 120 0Z" fill="#005C4B"/>
+    <text x="120" y="30" fill="white" style="font-family: Arial; font-size: 12px;">novo</text>
+    
+    <!-- Bot Identification Response -->
+    <g transform="translate(0, 65)">
+      <path d="M10 0H280C287 0 293 6 293 13V150C293 157 287 163 280 163H10C3 163 -3 157 -3 150V13C-3 6 3 0 10 0Z" fill="#202C33"/>
+      <text x="10" y="25" fill="white" style="font-family: Arial; font-weight: bold; font-size: 12px;">🚩 REGISTRO DE SAÍDA</text>
+      <text x="10" y="45" fill="white" style="font-family: Arial; font-size: 11px;">👤 Responsável: <tspan font-weight="bold" fill="#25D366">Carlos</tspan> (identificado)</text>
+      <text x="10" y="70" fill="white" style="font-family: Arial; font-size: 11px;">👥 Selecione os demais membros:</text>
+      <text x="10" y="90" fill="white" style="font-family: Arial; font-size: 11px;">1. Ronaldo</text>
+      <text x="10" y="105" fill="white" style="font-family: Arial; font-size: 11px;">2. Marciel</text>
+      <text x="10" y="120" fill="white" style="font-family: Arial; font-size: 11px;">3. Diogo</text>
+    </g>
+
+    <!-- User Selecting Team -->
+    <g transform="translate(180, 240)">
+      <path d="M120 0H210C217 0 223 6 223 13V40C223 47 217 53 210 53H120C113 53 107 47 107 40V13C107 6 113 0 120 0Z" fill="#005C4B" transform="translate(-110,0)"/>
+      <text x="120" y="30" fill="white" style="font-family: Arial; font-size: 12px;" transform="translate(-110,0)">1, 3</text>
+    </g>
+    
+    <!-- Bot Response Ticket -->
+    <g transform="translate(0, 305)">
+      <path d="M10 0H280C287 0 293 6 293 13V380C293 387 287 393 280 393H10C3 393 -3 387 -3 380V13C-3 6 3 0 10 0Z" fill="#202C33"/>
+      
+      <!-- Ticket Content -->
+      <g transform="translate(15, 20)">
+        <text x="0" y="0" fill="#25D366" style="font-family: Arial; font-weight: bold; font-size: 14px;">🚛 TICKET DE SAÍDA</text>
+        <line x1="0" y1="15" x2="260" y2="15" stroke="#25D366" stroke-width="1" opacity="0.3"/>
+        
+        <text x="0" y="40" fill="white" style="font-family: Arial; font-size: 11px;">👤 Responsável: <tspan font-weight="bold">Carlos</tspan></text>
+        <text x="0" y="60" fill="white" style="font-family: Arial; font-size: 11px;">👥 Equipe: <tspan font-weight="bold">Ronaldo, Diogo</tspan></text>
+        
+        <text x="0" y="90" fill="white" style="font-family: Arial; font-size: 11px;">🚗 Placa: <tspan font-weight="bold">GIO-9717</tspan></text>
+        <text x="0" y="110" fill="white" style="font-family: Arial; font-size: 11px;">🚚 Modelo: <tspan font-weight="bold">Truck</tspan></text>
+        <text x="0" y="130" fill="white" style="font-family: Arial; font-size: 11px;">📅 Data: <tspan font-weight="bold">27/04/2026</tspan></text>
+        
+        <rect x="0" y="150" width="260" height="60" rx="10" fill="#2A3942"/>
+        <text x="15" y="175" fill="white" style="font-family: Arial; font-size: 10px;">🏍️ Motos: <tspan font-weight="bold" fill="#25D366">15</tspan></text>
+        <text x="15" y="195" fill="white" style="font-family: Arial; font-size: 10px;">📦 Entregas: <tspan font-weight="bold" fill="#25D366">42</tspan></text>
+        <text x="130" y="175" fill="white" style="font-family: Arial; font-size: 10px;">📋 Coleta: <tspan font-weight="bold" fill="#25D366">05</tspan></text>
+        <text x="130" y="195" fill="white" style="font-family: Arial; font-size: 10px;">⚙️ Motores: <tspan font-weight="bold" fill="#25D366">02</tspan></text>
+        
+        <text x="0" y="235" fill="white" style="font-family: Arial; font-size: 11px;">📍 Local: <tspan font-weight="bold">São José dos Campos</tspan></text>
+        <text x="0" y="255" fill="#25D366" style="font-family: Arial; font-weight: bold; font-size: 12px;">✅ Viagem registrada!</text>
+      </g>
+    </g>
+  </g>
+</svg>

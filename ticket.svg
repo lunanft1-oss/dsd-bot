@@ -1,0 +1,79 @@
+<svg width="400" height="500" viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Card -->
+  <rect width="400" height="500" rx="20" fill="white"/>
+  <rect width="400" height="500" rx="20" fill="url(#paint0_linear_1_2)" fill-opacity="0.05"/>
+  <rect x="0.5" y="0.5" width="399" height="499" rx="19.5" stroke="#E5E7EB"/>
+
+  <!-- Header Section -->
+  <rect width="400" height="80" rx="20 20 0 0" fill="#1F2937"/>
+  <text x="20" y="45" fill="white" style="font-family: Inter, Arial; font-weight: 800; font-size: 24px;">LOGÍSTICA DSD</text>
+  <text x="20" y="65" fill="#9CA3AF" style="font-family: Inter, Arial; font-size: 12px; letter-spacing: 0.1em;">CONTROLE DE VIAGENS V1.0</text>
+  
+  <!-- Status Badge -->
+  <rect x="280" y="25" width="100" height="30" rx="15" fill="#D1FAE5"/>
+  <text x="295" y="45" fill="#065F46" style="font-family: Inter, Arial; font-weight: 600; font-size: 12px;">✅ PROCESSADO</text>
+
+  <!-- Ticket Type Title -->
+  <text x="20" y="120" fill="#111827" style="font-family: Inter, Arial; font-weight: 700; font-size: 18px;">TICKET DE SAÍDA</text>
+  <line x1="20" y1="135" x2="380" y2="135" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Vehicle Info Grid -->
+  <g transform="translate(20, 160)">
+    <!-- Placa -->
+    <text x="0" y="0" fill="#6B7280" style="font-family: Inter, Arial; font-size: 12px;">PLACA</text>
+    <text x="0" y="22" fill="#111827" style="font-family: Inter, Arial; font-weight: 700; font-size: 16px;">ABC-1234</text>
+    
+    <!-- Modelo -->
+    <text x="180" y="0" fill="#6B7280" style="font-family: Inter, Arial; font-size: 12px;">MODELO</text>
+    <text x="180" y="22" fill="#111827" style="font-family: Inter, Arial; font-weight: 700; font-size: 16px;">VUC / TRUCK</text>
+  </g>
+
+  <!-- Crew & Responsible -->
+  <g transform="translate(20, 220)">
+    <text x="0" y="0" fill="#6B7280" style="font-family: Inter, Arial; font-size: 12px;">RESPONSÁVEL / EQUIPE</text>
+    <text x="0" y="22" fill="#111827" style="font-family: Inter, Arial; font-weight: 600; font-size: 14px;">João Silva + Equipe Alfa</text>
+  </g>
+
+  <!-- Cargo Details -->
+  <rect x="20" y="260" width="360" height="100" rx="12" fill="#F9FAFB"/>
+  <g transform="translate(40, 285)">
+    <text x="0" y="0" fill="#374151" style="font-family: Inter, Arial; font-size: 12px;">MOTOS</text>
+    <text x="0" y="25" fill="#111827" style="font-family: Inter, Arial; font-weight: 800; font-size: 20px;">12</text>
+    
+    <text x="90" y="0" fill="#374151" style="font-family: Inter, Arial; font-size: 12px;">ENTREGAS</text>
+    <text x="90" y="25" fill="#111827" style="font-family: Inter, Arial; font-weight: 800; font-size: 20px;">45</text>
+    
+    <text x="190" y="0" fill="#374151" style="font-family: Inter, Arial; font-size: 12px;">COLETAS</text>
+    <text x="190" y="25" fill="#111827" style="font-family: Inter, Arial; font-weight: 800; font-size: 20px;">03</text>
+
+    <text x="275" y="0" fill="#374151" style="font-family: Inter, Arial; font-size: 12px;">MOTORES</text>
+    <text x="275" y="25" fill="#111827" style="font-family: Inter, Arial; font-weight: 800; font-size: 20px;">02</text>
+  </g>
+
+  <!-- Location & Time -->
+  <g transform="translate(20, 390)">
+    <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0ZM10 13.5C8.07 13.5 6.5 11.93 6.5 10C6.5 8.07 8.07 6.5 10 6.5C11.93 6.5 13.5 8.07 13.5 10C13.5 11.93 11.93 13.5 10 13.5Z" fill="#6B7280" transform="scale(0.8)"/>
+    <text x="25" y="18" fill="#374151" style="font-family: Inter, Arial; font-weight: 500; font-size: 14px;">São José dos Campos - SP</text>
+    
+    <text x="280" y="18" fill="#6B7280" style="font-family: Inter, Arial; font-size: 14px;">🕒 11:45 AM</text>
+  </g>
+
+  <!-- Footer Barcode Mockup -->
+  <rect x="20" y="440" width="360" height="40" rx="4" fill="#F3F4F6"/>
+  <g transform="translate(40, 450)">
+    <rect x="0" width="2" height="20" fill="#9CA3AF"/>
+    <rect x="5" width="4" height="20" fill="#9CA3AF"/>
+    <rect x="12" width="1" height="20" fill="#9CA3AF"/>
+    <rect x="15" width="3" height="20" fill="#9CA3AF"/>
+    <rect x="22" width="2" height="20" fill="#9CA3AF"/>
+    <rect x="28" width="5" height="20" fill="#9CA3AF"/>
+    <text x="130" y="15" fill="#9CA3AF" style="font-family: Courier New; font-size: 10px; letter-spacing: 0.5em;">DSD-270426-001</text>
+  </g>
+
+  <defs>
+    <linearGradient id="paint0_linear_1_2" x1="0" y1="0" x2="400" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+</svg>

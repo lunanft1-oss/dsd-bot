@@ -1,0 +1,20 @@
+{
+  "name": "whatsapp-trip-manager",
+  "version": "1.0.0",
+  "description": "Sistema de gestão de viagens via WhatsApp",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
+    "dayjs": "^1.11.10",
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.18.0",
+    "pdfkit-table": "^0.1.99",
+    "pino": "^8.19.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "sqlite3": "^5.1.7"
+  }
+}
