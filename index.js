@@ -21,6 +21,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('pt-br');
 
+console.log('******************************************');
+console.log('🏁 DSD BOT: INICIANDO PROCESSO...');
+console.log('******************************************');
+
 const states = {};
 // SEU NÚMERO (Admin)
 const adminNumber = "5511963534626@s.whatsapp.net";
@@ -93,10 +97,7 @@ async function connectToWhatsApp() {
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
-      console.log(`\n--- [${dayjs().format('HH:mm:ss')}] 📱 NOVO QR CODE DISPONÍVEL! ---`);
-      console.log('👉 Clique no link abaixo para ver o QR Code e escanear:');
-      console.log(`🔗 https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
-      console.log('--------------------------------------------------\n');
+      console.log(`\n✅ QR CODE LINK: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)} \n`);
       
       qrcode.generate(qr, {small: true});
       
