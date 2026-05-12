@@ -89,7 +89,9 @@ async function connectToWhatsApp() {
     console.log("2. Selecione 'Conectar com número de telefone'");
     
     // Altere para o seu número com DDI e DDD (ex: 5511999999999)
-    const phoneNumber = "5511963534626"; // Número admin padrão
+    // Agora ele tenta pegar das variáveis de ambiente do Railway primeiro
+    const phoneNumber = process.env.PAIRING_NUMBER || "5511963534626"; 
+    console.log(`📞 Solicitando código para o número: ${phoneNumber}`);
     
     setTimeout(async () => {
         try {
