@@ -88,22 +88,6 @@ async function connectToWhatsApp() {
     console.log("1. No WhatsApp: Configurações > Dispositivos Conectados > Conectar um dispositivo");
     console.log("2. Selecione 'Conectar com número de telefone'");
     
-    // Agora ele tenta pegar das variáveis de ambiente do Railway primeiro
-    const phoneNumber = process.env.PAIRING_NUMBER || "5511963534626"; 
-    console.log(`📞 Aguardando estabilização para solicitar código para: ${phoneNumber}...`);
-    
-    setTimeout(async () => {
-        if (sock.authState.creds.registered) return;
-        try {
-            const code = await sock.requestPairingCode(phoneNumber);
-            console.log(`\n************************************`);
-            console.log(`🚀 SEU CÓDIGO DE PAREAMENTO: ${code}`);
-            console.log(`************************************\n`);
-        } catch (err) {
-            console.error("❌ Erro ao solicitar código (pode ser limite de tentativas):", err.message);
-            console.log("💡 Dica: Tente reiniciar o serviço no Railway em 5 minutos.");
-        }
-    }, 15000);
   }
 
   sock.ev.on('connection.update', async (update) => {
@@ -111,6 +95,21 @@ async function connectToWhatsApp() {
     if (qr) {
       console.log('📱 QR CODE GERADO (caso prefira):');
       qrcode.generate(qr, {small: true});
+      
+      const phoneNumber = process.env.PAIRING_NUMBER || "5511963534626";
+      if (!sock.authState.creds.registered && !isReconnecting) {
+          console.log(`\n👉 SOLICITANDO CÓDIGO PARA: ${phoneNumber}...`);
+          setTimeout(async () => {
+              try {
+                  const code = await sock.requestPairingCode(phoneNumber);
+                  console.log(`\n************************************`);
+                  console.log(`🚀 SEU CÓDIGO DE PAREAMENTO: ${code}`);
+                  console.log(`************************************\n`);
+              } catch (err) {
+                  console.log("❌ Erro ao gerar código (limite do WhatsApp).");
+              }
+          }, 3000);
+      }
     }
     if (connection === 'close') {
       const reason = lastDisconnect?.error?.output?.statusCode;
