@@ -88,19 +88,22 @@ async function connectToWhatsApp() {
     console.log("1. No WhatsApp: Configurações > Dispositivos Conectados > Conectar um dispositivo");
     console.log("2. Selecione 'Conectar com número de telefone'");
     
-    // Altere para o seu número com DDI e DDD (ex: 5511999999999)
     // Agora ele tenta pegar das variáveis de ambiente do Railway primeiro
     const phoneNumber = process.env.PAIRING_NUMBER || "5511963534626"; 
-    console.log(`📞 Solicitando código para o número: ${phoneNumber}`);
+    console.log(`📞 Aguardando estabilização para solicitar código para: ${phoneNumber}...`);
     
     setTimeout(async () => {
+        if (sock.authState.creds.registered) return;
         try {
             const code = await sock.requestPairingCode(phoneNumber);
-            console.log(`\n🚀 SEU CÓDIGO DE PAREAMENTO: ${code}\n`);
+            console.log(`\n************************************`);
+            console.log(`🚀 SEU CÓDIGO DE PAREAMENTO: ${code}`);
+            console.log(`************************************\n`);
         } catch (err) {
-            console.error("Erro ao solicitar código:", err);
+            console.error("❌ Erro ao solicitar código (pode ser limite de tentativas):", err.message);
+            console.log("💡 Dica: Tente reiniciar o serviço no Railway em 5 minutos.");
         }
-    }, 5000);
+    }, 15000);
   }
 
   sock.ev.on('connection.update', async (update) => {
