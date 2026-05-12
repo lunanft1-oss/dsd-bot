@@ -96,9 +96,14 @@ async function connectToWhatsApp() {
       console.log('📱 QR CODE GERADO (caso prefira):');
       qrcode.generate(qr, {small: true});
       
-      const phoneNumber = process.env.PAIRING_NUMBER || "5511963534626";
+      const envNumber = process.env.PAIRING_NUMBER;
+      const phoneNumber = envNumber || "5511963534626";
+      
       if (!sock.authState.creds.registered && !isReconnecting) {
-          console.log(`\n👉 SOLICITANDO CÓDIGO PARA: ${phoneNumber}...`);
+          if (!envNumber) {
+              console.log("⚠️ AVISO: Usando número padrão. Configure PAIRING_NUMBER nas variáveis do Railway se este não for o seu número.");
+          }
+          console.log(`\n⏳ Aguardando 10s para estabilizar e gerar código para: ${phoneNumber}...`);
           setTimeout(async () => {
               try {
                   const code = await sock.requestPairingCode(phoneNumber);
@@ -106,9 +111,9 @@ async function connectToWhatsApp() {
                   console.log(`🚀 SEU CÓDIGO DE PAREAMENTO: ${code}`);
                   console.log(`************************************\n`);
               } catch (err) {
-                  console.log("❌ Erro ao gerar código (limite do WhatsApp).");
+                  console.log("❌ Erro ao gerar código:", err.message);
               }
-          }, 3000);
+          }, 10000);
       }
     }
     if (connection === 'close') {
