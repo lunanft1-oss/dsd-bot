@@ -116,6 +116,13 @@ async function connectToWhatsApp() {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const errorMsg = lastDisconnect?.error?.message || 'Unknown error';
       console.log(`❌ Conexão fechada. Razão: ${reason} - ${errorMsg}`);
+
+      if (reason === 401 || reason === 408) {
+        if (fs.existsSync('./data/auth_info_baileys')) {
+          fs.rmSync('./data/auth_info_baileys', { recursive: true, force: true });
+          console.log('🧹 Sessão limpa.');
+        }
+      }
       
       // Reconecta em quase todos os casos, exceto logout
       if (reason !== DisconnectReason.loggedOut && !isReconnecting) {
