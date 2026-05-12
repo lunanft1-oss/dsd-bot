@@ -102,7 +102,8 @@ async function connectToWhatsApp() {
       qrcode.generate(qr, {small: true});
       
       const envNumber = process.env.PAIRING_NUMBER;
-      const phoneNumber = envNumber || "5511963534626";
+      let phoneNumber = envNumber || "5511963534626";
+      phoneNumber = phoneNumber.replace(/\D/g, ''); // Remove tudo que não for número (+, -, espaços)
       
       if (!sock.authState.creds.registered && !isReconnecting) {
           if (!envNumber) {
