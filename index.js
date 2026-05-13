@@ -255,7 +255,8 @@ console.log(`--- EVENTO RECEBIDO ---`);
       }
 
       // Se for fromMe e não for um comando inicial, só processamos se houver um estado ativo
-      if (msg.key.fromMe && !['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking'].includes(command)) {
+      const primaryCommand = command.split(' ')[0];
+      if (msg.key.fromMe && !['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking', 'info'].includes(primaryCommand)) {
         if (!states[jid]) {
           console.log("ℹ️ Ignorando mensagem do dono (sem estado ativo e não é comando).");
           return;
