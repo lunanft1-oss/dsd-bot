@@ -39,6 +39,8 @@ async function generatePDF(tickets, titulo = 'Relatório DSD') {
           'NÃO',
           '0h',
           String(saida ? saida.quantidade : (t.quantidade || 0)),
+          String(saida ? saida.coleta : (t.coleta || 0)),
+          String(saida ? saida.motores : (t.motores || 0)),
           t.destino,
           '',
           t.caminhao || '',
@@ -54,7 +56,8 @@ async function generatePDF(tickets, titulo = 'Relatório DSD') {
           if (!isNaN(hChegada) && !isNaN(hSaida)) {
             row[4] = (hChegada >= 22 || hChegada <= 5 || hSaida >= 22 || hSaida <= 5) ? 'SIM' : 'NÃO';
             const diff = hChegada - hSaida;
-            row[5] = diff > 9 ? `${diff - 9}h` : '0h';
+            // Turno de 10h (7:00 as 17:00)
+            row[5] = diff > 10 ? `${diff - 10}h` : '0h';
           }
         }
 
@@ -74,6 +77,8 @@ async function generatePDF(tickets, titulo = 'Relatório DSD') {
         '---',
         '---',
         String(s.quantidade || 0),
+        String(s.coleta || 0),
+        String(s.motores || 0),
         s.destino || '',
         '',
         s.caminhao || '',
@@ -86,19 +91,21 @@ async function generatePDF(tickets, titulo = 'Relatório DSD') {
     const table = {
       title: "Viagens Registradas",
       headers: [
-        { label: "Chegada", width: 50 },
-        { label: "Data", width: 60 },
-        { label: "Dia", width: 60 },
-        { label: "Saída", width: 40 },
-        { label: "Adc. Not.", width: 40 },
-        { label: "Hora Ext.", width: 40 },
-        { label: "Motos", width: 35 },
-        { label: "Destino", width: 100 },
-        { label: "Frete", width: 35 },
-        { label: "Caminhão", width: 60 },
-        { label: "KM Ini", width: 40 },
-        { label: "KM Fin", width: 40 },
-        { label: "Resp.", width: 100 }
+        { label: "Chegada", width: 40 },
+        { label: "Data", width: 50 },
+        { label: "Dia", width: 50 },
+        { label: "Saída", width: 30 },
+        { label: "Not.", width: 25 },
+        { label: "Ext.", width: 25 },
+        { label: "Mot", width: 20 },
+        { label: "Col", width: 20 },
+        { label: "Mtr", width: 20 },
+        { label: "Destino", width: 85 },
+        { label: "Frte", width: 25 },
+        { label: "Cam.", width: 50 },
+        { label: "KMi", width: 30 },
+        { label: "KMf", width: 30 },
+        { label: "Resp.", width: 85 }
       ],
       rows: processedRows,
     };

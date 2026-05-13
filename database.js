@@ -48,6 +48,7 @@ db.run(`
         db.run("ALTER TABLE tickets ADD COLUMN motores INTEGER DEFAULT 0", () => {});
         db.run("ALTER TABLE tickets ADD COLUMN horario_chegada TEXT", () => {});
         db.run("ALTER TABLE tickets ADD COLUMN dia_semana TEXT", () => {});
+        db.run("ALTER TABLE tickets ADD COLUMN horas_extras REAL DEFAULT 0", () => {});
         resolve();
       });
     });
@@ -60,15 +61,16 @@ function saveTicket(data) {
       INSERT INTO tickets (
         ticket_id, tipo, data, dia_semana, solicitante, sender_jid, equipe, 
         placa, caminhao, num_saida, quantidade, entregas, coleta, motores,
-        destino, horario, horario_chegada, km_inicial, km_final, observacao
+        destino, horario, horario_chegada, km_inicial, km_final, observacao, horas_extras
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     db.run(query, [
       data.ticket_id, data.tipo || 'SAIDA', data.data, data.dia_semana || '', data.solicitante, data.sender_jid, 
       data.equipe, data.placa, data.caminhao, data.num_saida,
       data.quantidade || 0, data.entregas || 0, data.coleta || 0, data.motores || 0,
-      data.destino, data.horario, data.horario_chegada || '', data.km_inicial || 0, data.km_final || 0, data.observacao
+      data.destino, data.horario, data.horario_chegada || '', data.km_inicial || 0, data.km_final || 0, data.observacao,
+      data.horas_extras || 0
     ], (err) => {
       if (err) reject(err);
       else resolve();
@@ -136,16 +138,66 @@ function getAllTickets(ddds = []) {
   });
 }
 
-function getRanking(mesAno) {
+function getRanking(mesAno, tipo = 'motos') {
   return new Promise((resolve, reject) => {
+    let orderBy = 'total_motos DESC';
+    let selectField = 'SUM(quantidade) as total_motos';
+    
+    if (tipo === 'horas') {
+      orderBy = 'total_horas DESC';
+      selectField = 'SUM(horas_extras) as total_horas';
+    } else if (tipo === 'coletas') {
+      orderBy = 'total_coletas DESC';
+      selectField = 'SUM(coleta) as total_coletas';
+    } else if (tipo === 'motores') {
+      orderBy = 'total_motores DESC';
+      selectField = 'SUM(motores) as total_motores';
+    }
+
     const query = `
-      SELECT equipe, SUM(quantidade) as total_motos, COUNT(*) as viagens
+      SELECT equipe, ${selectField}, COUNT(*) as viagens
       FROM tickets 
       WHERE data LIKE ? AND tipo = 'SAIDA'
       GROUP BY equipe
-      ORDER BY total_motos DESC
+      ORDER BY ${orderBy}
     `;
     db.all(query, [`%${mesAno}`], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+
+function getColaboradorStats(nome, mesAno) {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        equipe,
+        SUM(quantidade) as total_motos,
+        SUM(coleta) as total_coletas,
+        SUM(motores) as total_motores,
+        SUM(horas_extras) as total_horas,
+        COUNT(*) as total_viagens
+      FROM tickets
+      WHERE (equipe LIKE ? OR solicitante LIKE ?) AND data LIKE ?
+      GROUP BY equipe
+    `;
+    db.get(query, [`%${nome}%`, `%${nome}%`, `%${mesAno}`], (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+function getColaboradorDetails(nome, mesAno, limit = 10) {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT * FROM tickets
+      WHERE (equipe LIKE ? OR solicitante LIKE ?) AND data LIKE ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `;
+    db.all(query, [`%${nome}%`, `%${nome}%`, `%${mesAno}`, limit], (err, rows) => {
       if (err) reject(err);
       else resolve(rows);
     });
@@ -159,5 +211,7 @@ module.exports = {
   getIndividualStats,
   getReport,
   getAllTickets,
-  getRanking
+  getRanking,
+  getColaboradorStats,
+  getColaboradorDetails
 };

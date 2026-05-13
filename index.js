@@ -55,11 +55,27 @@ async function sendOrEdit(sock, jid, text, state) {
   try {
     const sent = await sock.sendMessage(jid, { text: text });
     console.log(`✅ Mensagem enviada com sucesso!`);
-    if (state) state.lastBotMsgKey = sent.key;
+    if (state) {
+      state.lastBotMsgKey = sent.key;
+      if (!state.msgKeys) state.msgKeys = [];
+      state.msgKeys.push(sent.key);
+    }
     return sent.key;
   } catch (err) {
     console.error(`❌ Erro ao enviar mensagem para ${jid}:`, err.message);
     throw err;
+  }
+}
+
+async function clearFlow(sock, jid, msgKeys) {
+  if (!msgKeys || msgKeys.length === 0) return;
+  console.log(`🧹 Limpando fluxo: apagando ${msgKeys.length} mensagens...`);
+  for (const key of msgKeys) {
+    try {
+      await sock.sendMessage(jid, { delete: key });
+    } catch (e) {
+      // Ignora erros se a mensagem já foi apagada ou não encontrada
+    }
   }
 }
 
@@ -248,7 +264,7 @@ console.log(`--- EVENTO RECEBIDO ---`);
       }
 
 
-      // COMANDO SECRETO DE RANKING (Apenas Admins/Permitidos)
+      // COMANDO DE RANKING E INFORMAÇÕES (Apenas Admins/Permitidos)
       const rankingAllowed = [
         adminNumber.split('@')[0].slice(-8), 
         "79526432", 
@@ -256,35 +272,83 @@ console.log(`--- EVENTO RECEBIDO ---`);
       ];
       const isAllowedRanking = rankingAllowed.some(num => cleanNumber.endsWith(num));
 
-      if (command === 'ranking' && isAllowedRanking) {
-        const mesAtual = dayjs().format('MM-YYYY');
-        const rows = await db.getRanking(mesAtual);
+      if (isAllowedRanking) {
+        const [cmd, ...args] = command.split(' ');
         
-        if (rows.length === 0) {
-          await sock.sendMessage(jid, { text: "📭 Nenhum dado de ranking para este mês ainda." });
+        if (cmd === 'ranking') {
+          const mesAtual = dayjs().format('MM-YYYY');
+          const subCommand = args[0] || 'motos';
+          
+          let tipo = 'motos';
+          if (['horas', 'extra', 'hora'].includes(subCommand)) tipo = 'horas';
+          if (['coleta', 'coletas'].includes(subCommand)) tipo = 'coletas';
+          if (['motor', 'motores'].includes(subCommand)) tipo = 'motores';
+
+          const rows = await db.getRanking(mesAtual, tipo);
+          
+          if (rows.length === 0) {
+            await sock.sendMessage(jid, { text: "📭 Nenhum dado para este mês ainda." });
+            return;
+          }
+
+          let title = "🏍️ RANKING DE MOTOS";
+          let unit = "motos";
+          let field = "total_motos";
+
+          if (tipo === 'horas') { title = "🕒 RANKING DE HORAS EXTRAS"; unit = "h extras"; field = "total_horas"; }
+          if (tipo === 'coletas') { title = "📋 RANKING DE COLETAS"; unit = "coletas"; field = "total_coletas"; }
+          if (tipo === 'motores') { title = "⚙️ RANKING DE MOTORES"; unit = "motores"; field = "total_motores"; }
+
+          let mRanking = `🏆 *${title}*\n📅 *${dayjs().format('MMMM/YYYY').toUpperCase()}*\n`;
+          mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+          const validRows = rows.filter(r => !r.equipe.includes("thids") && !r.equipe.includes("Admin"));
+
+          validRows.forEach((row, index) => {
+            let medal = '👤';
+            if (index === 0) medal = '🥇';
+            else if (index === 1) medal = '🥈';
+            else if (index === 2) medal = '🥉';
+
+            const valor = tipo === 'horas' ? row[field].toFixed(1) : row[field];
+            mRanking += `${medal} *${index + 1}º Lugar:* ${row.equipe}\n`;
+            mRanking += `╰ 👉 *${valor}* ${unit} | 🛣️ *${row.viagens}* viagens\n\n`;
+          });
+
+          mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n💡 _Dica: Use "ranking [motos/horas/coletas/motores]"_`;
+          await sock.sendMessage(jid, { text: mRanking });
           return;
         }
 
-        let mRanking = `🏆 *RANKING MENSAL DSD*\n📅 *${dayjs().format('MMMM/YYYY').toUpperCase()}*\n`;
-        mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        if (cmd === 'info' && args.length > 0) {
+          const nomeBusca = args.join(' ');
+          const mesAtual = dayjs().format('MM-YYYY');
+          const stats = await db.getColaboradorStats(nomeBusca, mesAtual);
+          
+          if (!stats) {
+            await sock.sendMessage(jid, { text: `❌ Nenhuma informação encontrada para "${nomeBusca}" este mês.` });
+            return;
+          }
 
-        // Filtrar e ordenar os dados
-        const validRows = rows.filter(r => !r.equipe.includes("thids") && !r.equipe.includes("Admin"));
+          const details = await db.getColaboradorDetails(nomeBusca, mesAtual, 5);
 
-        validRows.forEach((row, index) => {
-          let medal = '👤';
-          if (index === 0) medal = '🥇';
-          else if (index === 1) medal = '🥈';
-          else if (index === 2) medal = '🥉';
+          let mInfo = `📊 *INDICADORES: ${stats.equipe.toUpperCase()}*\n📅 Mês: *${dayjs().format('MMMM/YYYY')}*\n`;
+          mInfo += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+          mInfo += `🏍️ Motos Transportadas: *${stats.total_motos}*\n`;
+          mInfo += `📋 Coletas Realizadas: *${stats.total_coletas}*\n`;
+          mInfo += `⚙️ Motores Coletados: *${stats.total_motores}*\n`;
+          mInfo += `🕒 Horas Extras (7h-17h): *${stats.total_horas.toFixed(1)}h*\n`;
+          mInfo += `🛣️ Total de Viagens: *${stats.total_viagens}*\n\n`;
+          
+          mInfo += `📜 *HISTÓRICO RECENTE (Últimas 5):*\n`;
+          details.forEach(t => {
+            mInfo += `• ${t.data}: ${t.destino} (${t.quantidade} mot | ${t.coleta} col)\n`;
+          });
 
-          mRanking += `${medal} *${index + 1}º Lugar:* ${row.equipe}\n`;
-          mRanking += `╰ 🏍️ *${row.total_motos}* motos | 🛣️ *${row.viagens}* viagens\n\n`;
-        });
-
-        mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n💡 _Este ranking é atualizado em tempo real conforme os tickets são gerados._`;
-        
-        await sock.sendMessage(jid, { text: mRanking });
-        return;
+          mInfo += `\n━━━━━━━━━━━━━━━━━━━━━━\n✅ _Dados extraídos do banco DSD._`;
+          await sock.sendMessage(jid, { text: mInfo });
+          return;
+        }
       }
 
       if (command === 'apagar' || command === 'excluir' || command === 'limpar') {
@@ -293,9 +357,9 @@ console.log(`--- EVENTO RECEBIDO ---`);
         return;
       }
 
-if (command === 'gerar' || command === 'ajuda' || command === 'menu' || command === 'dsd') {
+      if (command === 'gerar' || command === 'ajuda' || command === 'menu' || command === 'dsd') {
         try {
-          const m = `📍 *ASSISTENTE DSD - COMANDOS*\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n1️⃣  *novo*  →  Registrar Viagem\n2️⃣  *resumo*  →  Relatório de Hoje\n3️⃣  *pdf*  →  Baixar Relatório (PDF)\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n💡 *DURANTE O PREENCHIMENTO:*\n⬅️ Digite *voltar* para corrigir.\n❌ Digite *cancelar* para encerrar.\n━━━━━━━━━━━━━━━━━━━━━━━━`;
+          const m = `📍 *ASSISTENTE DSD - COMANDOS*\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n1️⃣  *novo*  →  Registrar Viagem\n2️⃣  *resumo*  →  Relatório de Hoje\n3️⃣  *pdf*  →  Baixar Relatório (PDF)\n4️⃣  *ranking*  →  Ver Ranking de Motos\n5️⃣  *ranking horas* → Ranking de Horas Extras\n6️⃣  *info [nome]* → Detalhes de um Colaborador\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n💡 *DURANTE O PREENCHIMENTO:*\n⬅️ Digite *voltar* para corrigir.\n❌ Digite *cancelar* para encerrar.\n━━━━━━━━━━━━━━━━━━━━━━━━`;
           console.log(`📤 Enviando menu para ${jid}`);
           await sock.sendMessage(jid, { text: m });
           console.log(`✅ Menu enviado!`);
@@ -316,23 +380,30 @@ if (command === 'gerar' || command === 'ajuda' || command === 'menu' || command 
       }
 
       if (states[jid] && (command === 'cancelar' || command === 'sair')) {
-        deleteMsgAsync(sock, jid, msg.key);
+        const flowKeys = states[jid].msgKeys || [];
+        flowKeys.push(msg.key);
+        await clearFlow(sock, jid, flowKeys);
         delete states[jid];
         await sock.sendMessage(jid, { text: "❌ Registro encerrado." });
         return;
       }
 
-if (command === 'novo') {
+      if (command === 'novo') {
         try {
           const equipeFiltrada = getEquipeByDDD(userJid);
           const solicitante = msg.pushName || "Motorista";
-          states[jid] = { step: 'equipe_saida', lastUpdate: Date.now(), equipeFiltrada, data: { tipo: 'SAIDA', solicitante, sender_jid: userJid } };
+          states[jid] = { 
+            step: 'equipe_saida', 
+            lastUpdate: Date.now(), 
+            equipeFiltrada, 
+            msgKeys: [msg.key],
+            data: { tipo: 'SAIDA', solicitante, sender_jid: userJid } 
+          };
           let m = `🚩 *REGISTRO DE VIAGEM*\n👤 Responsável: *${solicitante}*\n\n👥 Selecione os membros da equipe:\n`;
           equipeFiltrada.forEach((n, i) => m += `${i + 1}. ${n}\n`);
           console.log(`📤 Enviando para ${jid}: ${m.substring(0, 50)}...`);
           await sendOrEdit(sock, jid, m, states[jid]);
           console.log(`✅ Mensagem enviada com sucesso!`);
-          deleteMsgAsync(sock, jid, msg.key);
         } catch (err) {
           console.error(`❌ Erro ao enviar mensagem:`, err.message);
         }
@@ -349,15 +420,15 @@ if (command === 'novo') {
       const state = states[jid];
       if (!state) return;
       state.lastUpdate = Date.now();
+      if (!state.msgKeys) state.msgKeys = [];
+      state.msgKeys.push(msg.key);
 
-if (command === 'voltar') {
-        deleteMsgAsync(sock, jid, msg.key);
+      if (command === 'voltar') {
         const steps = ['equipe_saida', 'placa_saida', 'caminhao', 'num_saida', 'destino_saida', 'horario_saida', 'motos', 'coleta', 'motores', 'observacao'];
         const idx = steps.indexOf(state.step);
         if (idx > 0) {
           if (state.step === 'observacao') state.data.observacao = '';
           state.step = steps[idx - 1];
-        }
         
         let mBack = "🔄 Voltando...\n";
         if (state.step === 'equipe_saida') {
@@ -385,6 +456,7 @@ if (command === 'voltar') {
           mBack += `📝 Alguma observação? (ou 'não')`;
         }
         await sendOrEdit(sock, jid, mBack, state);
+        }
         return;
       }
 
@@ -489,6 +561,24 @@ case 'motores': {
           state.data.data = dayjs().tz('America/Sao_Paulo').format('DD-MM-YYYY');
           state.data.dia_semana = dayjs().tz('America/Sao_Paulo').format('dddd');
           state.data.ticket_id = tickets.generateTicketId();
+
+          // CÁLCULO DE HORAS EXTRAS (Base: Turno de 10h - 07:00 às 17:00)
+          if (state.data.horario && state.data.horario_chegada) {
+            const hSaida = dayjs(`${state.data.data} ${state.data.horario}`, "DD-MM-YYYY HH:mm");
+            let hChegada = dayjs(`${state.data.data} ${state.data.horario_chegada}`, "DD-MM-YYYY HH:mm");
+            
+            if (hChegada.isBefore(hSaida)) {
+              hChegada = hChegada.add(1, 'day'); // Caso vire a noite
+            }
+            
+            const totalHoras = hChegada.diff(hSaida, 'hour', true);
+            // Turno de 7h às 17h = 10 horas totais
+            const extras = totalHoras > 10 ? totalHoras - 10 : 0;
+            state.data.horas_extras = extras;
+          } else {
+            state.data.horas_extras = 0;
+          }
+
           console.log('DEBUG - Observacao:', state.data.observacao);
           try {
             await db.saveTicket(state.data);
@@ -497,21 +587,19 @@ case 'motores': {
             await sock.sendMessage(jid, { text: "❌ Erro ao salvar ticket no banco de dados." });
             return;
           }
-          let finalMsg = `━━━━━━━━━━━━━━━━━━━━━━━━\n📄 *TICKET DE VIAGEM*\n━━━━━━━━━━━━━━━━━━━━━━━━\n🔖 Nº: ${state.data.ticket_id}\n📅 Data: ${state.data.data} (${state.data.dia_semana})\n👤 Responsável: ${state.data.solicitante}\n👥 Equipe: ${state.data.equipe}\n🚗 Placa: *${state.data.placa || '-'}*\n🚚 Modelo: ${state.data.caminhao || '-'}\n🔢 Saída Nº: ${state.data.num_saida || '-'}\n📍 Destino: ${state.data.destino}\n🕐 Saída: ${state.data.horario}\n🏁 Chegada: ${state.data.horario_chegada}\n🏍️ Motos: ${state.data.quantidade}\n📋 Coletas: ${state.data.coleta}\n⚙️ Motores: ${state.data.motores}\n`;
+          let finalMsg = `━━━━━━━━━━━━━━━━━━━━━━━━\n📄 *TICKET DE VIAGEM*\n━━━━━━━━━━━━━━━━━━━━━━━━\n🔖 Nº: ${state.data.ticket_id}\n📅 Data: ${state.data.data} (${state.data.dia_semana})\n👤 Responsável: ${state.data.solicitante}\n👥 Equipe: ${state.data.equipe}\n🚗 Placa: *${state.data.placa || '-'}*\n🚚 Modelo: ${state.data.caminhao || '-'}\n🔢 Saída Nº: ${state.data.num_saida || '-'}\n📍 Destino: ${state.data.destino}\n🕐 Saída: ${state.data.horario}\n🏁 Chegada: ${state.data.horario_chegada}\n🕒 Horas Extras: *${state.data.horas_extras.toFixed(1)}h*\n🏍️ Motos: ${state.data.quantidade}\n📋 Coletas: ${state.data.coleta}\n⚙️ Motores: ${state.data.motores}\n`;
           if (state.data.observacao && state.data.observacao.length > 0) {
             finalMsg += `📝 Obs: ${state.data.observacao}\n`;
           }
           finalMsg += `━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Viagem registrada com sucesso!`;
+          const flowKeys = state.msgKeys || [];
           await sendOrEdit(sock, jid, finalMsg, state);
+          await clearFlow(sock, jid, flowKeys);
           delete states[jid];
           break;
         }
       }
       
-      if (state && state.step !== 'observacao') {
-        deleteMsgAsync(sock, jid, msg.key);
-      }
-
     } catch (err) { console.error(err); }
   });
 }
