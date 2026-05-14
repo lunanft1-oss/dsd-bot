@@ -232,6 +232,22 @@ async function connectToWhatsApp() {
 
       console.log(`📡 Evento de mensagem [${type}] de: ${senderJid} no chat ${jid}`);
       
+      // CACHE DE MENSAGENS PARA EVITAR DUPLICIDADE
+      const msgId = msg.key.id;
+      if (msgCache.has(msgId)) {
+          return;
+      }
+      msgCache.add(msgId);
+      if (msgCache.size > 500) {
+          const first = msgCache.values().next().value;
+          msgCache.delete(first);
+      }
+
+      if (!msg.message) {
+        console.log("ℹ️ Mensagem sem conteúdo (status, leitura, etc).");
+        return;
+      }
+      
       // Extração de texto robusta (unificada)
       let text = (
         msg.message.conversation || 
