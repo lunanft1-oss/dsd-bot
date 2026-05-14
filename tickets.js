@@ -6,23 +6,32 @@ function generateTicketId() {
 }
 
 function formatTicket(data) {
-  return `
+  let msg = `
 ━━━━━━━━━━━━━━━━━━━━━━━━
-🚛 TICKET DE VIAGEM
+📄 *TICKET DE VIAGEM*
 ━━━━━━━━━━━━━━━━━━━━━━━━
 🔖 Nº: ${data.ticket_id}
-📅 Data: ${data.data}
+📅 Data: ${data.data} (${data.dia_semana || ''})
 👤 Responsável: ${data.solicitante}
 👥 Equipe: ${data.equipe}
-🚚 Caminhão: ${data.caminhao}
-🔢 Saída: ${data.num_saida}ª viagem
-📦 Qtd: ${data.quantidade}
+🚗 Placa: *${data.placa || '-'}*
+🚚 Modelo: ${data.caminhao || '-'}
+🔢 Saída Nº: ${data.num_saida || '-'}
 📍 Destino: ${data.destino}
-🕐 Horário: ${data.horario}
-📝 Obs: ${data.observacao || 'Nenhuma'}
-━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Viagem registrada com sucesso!
-  `.trim();
+🕐 Saída: ${data.horario}
+🏁 Chegada: ${data.horario_chegada || '-'}
+🕒 Horas Extras: *${(data.horas_extras || 0).toFixed(1)}h*
+🏍️ Motos: ${data.quantidade || 0}
+📋 Coletas: ${data.coleta || 0}
+⚙️ Motores: ${data.motores || 0}
+`.trim();
+
+  if (data.observacao && data.observacao.toLowerCase() !== 'não') {
+    msg += `\n📝 Obs: ${data.observacao}`;
+  }
+
+  msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Viagem registrada com sucesso!`;
+  return msg;
 }
 
 function formatReport(rows, title) {

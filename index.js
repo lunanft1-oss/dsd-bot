@@ -14,11 +14,13 @@ const reports = require('./reports');
 const dayjs = require('dayjs');
 const timezone = require('dayjs/plugin/timezone');
 const utc = require('dayjs/plugin/utc');
+const customParseFormat = require('dayjs/plugin/customParseFormat');
 const fs = require('fs');
 require('dayjs/locale/pt-br');
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(customParseFormat);
 dayjs.locale('pt-br');
 
 console.log('******************************************');
@@ -129,61 +131,58 @@ async function connectToWhatsApp() {
     printQRInTerminal: false // Vamos gerenciar o QR manualmente para ser mais limpo
   });
 
+  // Lógica de Pairing Code (Emparelhamento por número)
+  // Só solicita se NÃO estiver registrado e se o PAIRING_NUMBER estiver definido ou for o admin
+  if (!sock.authState.creds.registered) {
+    let phoneNumber = process.env.PAIRING_NUMBER || adminNumber.split('@')[0];
+    phoneNumber = phoneNumber.replace(/\D/g, '');
+
+    if (phoneNumber) {
+      console.log(`\n\n=========================================`);
+      console.log(`📲 SOLICITANDO CÓDIGO PARA: ${phoneNumber}`);
+      console.log(`⏳ Aguarde um momento...`);
+      
+      setTimeout(async () => {
+        try {
+          const code = await sock.requestPairingCode(phoneNumber);
+          console.log(`\n************************************`);
+          console.log(`🔥 SEU CÓDIGO DE CONEXÃO: ${code}`);
+          console.log(`👉 No WhatsApp: 'Conectar com número de telefone'`);
+          console.log(`************************************\n`);
+        } catch (err) {
+          console.error('❌ Erro ao solicitar código:', err.message);
+          console.log('💡 DICA: Tente reiniciar o bot no Railway.');
+        }
+      }, 6000);
+    }
+  }
+
   let isReconnecting = false;
   sock.ev.on('creds.update', saveCreds);
 
-  // Lógica de Pareamento por Código para Railway
+  // Aviso de status inicial
   if (!sock.authState.creds.registered) {
-    // Você pode definir seu número aqui ou ele pedirá no console
-    // Para facilitar, vou deixar um aviso nos logs
     console.log("⚠️ DISPOSITIVO NÃO CONECTADO!");
-    console.log("👉 Para conectar via CÓDIGO (mais fácil no Railway):");
-    console.log("1. No WhatsApp: Configurações > Dispositivos Conectados > Conectar um dispositivo");
-    console.log("2. Selecione 'Conectar com número de telefone'");
-    
+    console.log("👉 Verifique os logs acima para o CÓDIGO ou QR Code.");
   }
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
     
     if (qr) {
-      console.log('\n==================================================');
-      console.log('📌 NOVO QR CODE GERADO!');
-      console.log('--------------------------------------------------');
-      console.log(`👉 LINK PARA SCAN (Copie e cole no navegador):`);
-      console.log(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
-      console.log('--------------------------------------------------');
+      console.log('\n' + '■'.repeat(50));
+      console.log('📌 QR CODE DISPONÍVEL');
+      console.log(`🔗 Link: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
+      console.log('■'.repeat(50) + '\n');
       
-      // Gera no terminal
+      // Gera no terminal (caso o usuário esteja vendo o log em tempo real)
       qrcode.generate(qr, {small: true});
       
-      // Salva em arquivo para visualização fácil
-      await qrcodeImage.toFile('./qrcode.png', qr);
-      console.log('💾 Arquivo "qrcode.png" gerado na raiz.');
-      console.log('==================================================\n');
-
-      const envNumber = process.env.PAIRING_NUMBER;
-      let phoneNumber = envNumber || "5511963534626";
-      phoneNumber = phoneNumber.replace(/\D/g, '');
-      
-      if (!sock.authState.creds.registered && !isReconnecting) {
-          console.log(`\n💡 DICA: Se o QR Code não aparecer no log, o link acima é a melhor opção.`);
-          console.log(`🚀 Ou aguarde 30s para o CÓDIGO DE PAREAMENTO aparecer...`);
-          
-          if (!global.pairingTimeout) {
-            global.pairingTimeout = setTimeout(async () => {
-                try {
-                    const code = await sock.requestPairingCode(phoneNumber);
-                    console.log(`\n************************************`);
-                    console.log(`🔥 CÓDIGO PARA PAREAMENTO: ${code}`);
-                    console.log(`👉 Use este código no WhatsApp em 'Conectar com número de telefone'`);
-                    console.log(`************************************\n`);
-                } catch (err) {
-                    console.log("❌ Erro ao gerar código:", err.message);
-                }
-            }, 10000); // Reduzi para 10s para ser mais rápido
-          }
-      }
+      // Salva em arquivo
+      try {
+        await qrcodeImage.toFile('./qrcode.png', qr);
+        console.log('💾 QR salvo em "qrcode.png"');
+      } catch (e) {}
     }
     if (connection === 'close') {
       const reason = lastDisconnect?.error?.output?.statusCode;
@@ -225,35 +224,30 @@ async function connectToWhatsApp() {
     try {
       console.log(`📡 Novo evento de mensagem (Tipo: ${type}) - Total: ${messages.length}`);
       const msg = messages[0];
-      const jid = msg.key.remoteJid;
-      const userJid = msg.key.participant || jid;
-
-      console.log(`📡 Evento de mensagem [${type}] de: ${userJid}`);
-      
-      // CACHE DE MENSAGENS PARA EVITAR DUPLICIDADE
-      const msgId = msg.key.id;
-      if (msgCache.has(msgId)) {
-          console.log(`♻️ Ignorando mensagem duplicada: ${msgId}`);
-          return;
-      }
-      msgCache.add(msgId);
-      if (msgCache.size > 500) {
-          const first = msgCache.values().next().value;
-          msgCache.delete(first);
-      }
-
-      if (!msg.message) return;
-      
-      // LIMPEZA DE JID (Remove sufixos :1, :2 etc)
+      const rawJid = msg.key.remoteJid;
+      const jid = rawJid.split(':')[0].split('@')[0] + (rawJid.includes('@g.us') ? '@g.us' : '@s.whatsapp.net');
+      const userJid = msg.key.participant || rawJid;
       const senderJid = userJid.split(':')[0].split('@')[0] + '@s.whatsapp.net';
       const cleanNumber = senderJid.split('@')[0];
+
+      console.log(`📡 Evento de mensagem [${type}] de: ${senderJid} no chat ${jid}`);
       
-      console.log(`--- EVENTO RECEBIDO ---`);
-      console.log(`JID (Chat): ${jid}`);
-      console.log(`Sender (Pessoa): ${senderJid}`);
-      const rawText = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.buttonsResponseMessage?.selectedButtonId || msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || '';
-      console.log(`Texto: "${rawText}"`);
-      console.log(`-----------------------`);
+      // Extração de texto robusta (unificada)
+      let text = (
+        msg.message.conversation || 
+        msg.message.extendedTextMessage?.text || 
+        msg.message.buttonsResponseMessage?.selectedButtonId || 
+        msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || 
+        msg.message.templateButtonReplyMessage?.selectedId ||
+        msg.message.imageMessage?.caption || 
+        msg.message.videoMessage?.caption || 
+        ""
+      ).trim();
+      
+      let command = text.toLowerCase().trim();
+
+      console.log(`\n📩 [${type}] de ${cleanNumber}: "${text}"`);
+      if (msg.key.fromMe) console.log(`👤 (Mensagem enviada por você)`);
 
       // LIBERADO PARA TESTE: Aceita qualquer um
       const isAuthorized = true;
@@ -269,26 +263,14 @@ async function connectToWhatsApp() {
         console.log("⚠️ Não foi possível marcar como lida (normal para @lid).");
       }
 
-      let text = (
-        msg.message.conversation || 
-        msg.message.extendedTextMessage?.text || 
-        msg.message.buttonsResponseMessage?.selectedButtonId ||
-        msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || 
-        ""
-      ).trim();
-      
-      const caption = (msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || "").toLowerCase().trim();
-      let command = (text.toLowerCase().trim() || caption);
 
-      // MAPEAMENTO DE NÚMEROS DO MENU PARA COMANDOS
-      if (command === '1') command = 'novo';
-      if (command === '2') command = 'resumo';
-      if (command === '3') command = 'pdf';
-      if (command === '4') command = 'ranking';
-      if (command === '5') command = 'ranking horas';
-      if (command === '6') command = 'info';
+      // (Mapeamento movido para baixo para evitar conflitos com seleções de menu)
 
-      console.log(`📌 Command detectado: "${command}" (Original: "${text}")`);
+      // 0. COMANDOS DE TESTE PRIORITÁRIOS
+      if (command === 'ping' || command === 'teste' || command === 'test') {
+        await sock.sendMessage(jid, { text: `🚀 *BOT ONLINE!* \n📡 Respondendo a: ${cleanNumber}\n🕒 Hora: ${dayjs().format('HH:mm:ss')}` });
+        return;
+      }
 
       // LISTA DE FRASES QUE O BOT USA (para evitar que ele responda a si mesmo)
       const botPhrases = [
@@ -325,17 +307,34 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // 2. MAPEAMENTO DE NÚMEROS DO MENU (Só funciona se NÃO estiver em um fluxo)
+      if (!states[jid]) {
+        if (command === '1') command = 'novo';
+        else if (command === '2') command = 'resumo';
+        else if (command === '3') command = 'pdf';
+        else if (command === '4') command = 'ranking';
+        else if (command === '5') command = 'ranking horas';
+        else if (command === '6') command = 'info';
+      }
+
       // 3. COMANDOS INICIAIS (NOVO, MENU, ETC) - PRIORIDADE MÁXIMA
-      const validCommands = ['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking', 'info', 'voltar', 'cancelar', 'sair'];
+      const validCommands = ['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking', 'info', 'voltar', 'corrigir', 'cancelar', 'sair', 'teste', 'test'];
       const primaryCommand = command.split(' ')[0];
       const isInitialCommand = validCommands.includes(primaryCommand);
 
-      // 4. SE FOR DO DONO E NÃO FOR UM COMANDO NEM ESTIVER NO MEIO DE UM FLUXO, IGNORA
-      if (msg.key.fromMe && !isInitialCommand && !states[jid]) {
-        console.log(`ℹ️ Ignorando mensagem do dono (não é comando e sem estado ativo).`);
+      // 4. SE FOR DO DONO, SÓ RESPONDE SE:
+      // - For um chat consigo mesmo (self-chat)
+      // - Já estiver em um fluxo (states[jid] existe)
+      // - For um comando inicial explícito
+      const isSelfChat = jid === sock.user.id.split(':')[0] + '@s.whatsapp.net';
+      if (msg.key.fromMe && !isInitialCommand && !states[jid] && !isSelfChat) {
         return;
       }
 
+      // ALIASES
+      if (command === 'corrigir') command = 'voltar';
+
+      console.log(`🔍 Processando comando: "${command}" (Inicial: ${isInitialCommand}, Estado: ${states[jid]?.step || 'Nenhum'})`);
 
       if (command === 'resumo') {
         const ddds = getStateDDDs(userJid);
@@ -345,8 +344,10 @@ async function connectToWhatsApp() {
       }
 
       // COMANDO DE RANKING E INFORMAÇÕES (Prioridade sobre o fluxo)
-      const isAllowedRanking = allowedNumbers.some(num => senderJid.includes(num.split('@')[0]));
+      const isAdmin = senderJid.includes(adminNumber.split('@')[0]);
+      const isAllowedRanking = isAdmin || allowedNumbers.some(num => senderJid.includes(num.split('@')[0]));
       if (isAllowedRanking) {
+
         const [cmd, ...args] = command.split(' ');
         
         if (cmd === 'ranking') {
@@ -669,11 +670,8 @@ case 'motores': {
             await sock.sendMessage(jid, { text: "❌ Erro ao salvar ticket no banco de dados." });
             return;
           }
-          let finalMsg = `━━━━━━━━━━━━━━━━━━━━━━━━\n📄 *TICKET DE VIAGEM*\n━━━━━━━━━━━━━━━━━━━━━━━━\n🔖 Nº: ${state.data.ticket_id}\n📅 Data: ${state.data.data} (${state.data.dia_semana})\n👤 Responsável: ${state.data.solicitante}\n👥 Equipe: ${state.data.equipe}\n🚗 Placa: *${state.data.placa || '-'}*\n🚚 Modelo: ${state.data.caminhao || '-'}\n🔢 Saída Nº: ${state.data.num_saida || '-'}\n📍 Destino: ${state.data.destino}\n🕐 Saída: ${state.data.horario}\n🏁 Chegada: ${state.data.horario_chegada}\n🕒 Horas Extras: *${state.data.horas_extras.toFixed(1)}h*\n🏍️ Motos: ${state.data.quantidade}\n📋 Coletas: ${state.data.coleta}\n⚙️ Motores: ${state.data.motores}\n`;
-          if (state.data.observacao && state.data.observacao.length > 0) {
-            finalMsg += `📝 Obs: ${state.data.observacao}\n`;
-          }
-          finalMsg += `━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Viagem registrada com sucesso!`;
+
+          const finalMsg = tickets.formatTicket(state.data);
           const flowKeys = [...(state.msgKeys || [])];
           await sendOrEdit(sock, jid, finalMsg); // Não passa 'state' para não incluir esta mensagem na limpeza
           await clearFlow(sock, jid, flowKeys);
