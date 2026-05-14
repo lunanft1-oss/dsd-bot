@@ -7,7 +7,7 @@ const {
 const qrcode = require('qrcode-terminal');
 const qrcodeImage = require('qrcode');
 const pino = require('pino');
-const { getEquipeByDDD, placas, modelos, hoteis } = require('./dados');
+const { getEquipeByDDD, placas, modelos } = require('./dados');
 const db = require('./database');
 const tickets = require('./tickets');
 const reports = require('./reports');
@@ -26,12 +26,13 @@ console.log('🏁 DSD BOT: INICIANDO PROCESSO...');
 console.log('******************************************');
 
 const states = {};
-// SEU NÚMERO (Admin)
+// NÚMEROS AUTORIZADOS (Admin e Gestores)
 const adminNumber = "5511963534626@s.whatsapp.net";
 const allowedNumbers = [
   adminNumber, 
-  "557599565762@s.whatsapp.net",
-  "5511959316952@s.whatsapp.net"
+  "5511959316952@s.whatsapp.net", // Lucas
+  "5511979526432@s.whatsapp.net", // Bruno
+  "5511981090174@s.whatsapp.net"  // Adilson
 ];
 
 function isAllowedDDD(jid) {
@@ -84,8 +85,37 @@ function deleteMsgAsync(sock, jid, key) {
 }
 
 async function connectToWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState('data/auth_info_baileys');
+  console.log('\n' + '='.repeat(50));
+  console.log('🤖 DSD BOT: INICIANDO CONEXÃO...');
+  console.log('--------------------------------------------------');
+  console.log('🔍 Verificando variáveis de ambiente:');
+  console.log(`   - RESET_SESSION: "${process.env.RESET_SESSION}"`);
+  console.log(`   - PAIRING_NUMBER: "${process.env.PAIRING_NUMBER || 'Padrão'}"`);
+  console.log('--------------------------------------------------');
+
+  // Se a variável RESET_SESSION for true, apaga a pasta de autenticação de forma agressiva
+  if (String(process.env.RESET_SESSION).toLowerCase().trim() === 'true') {
+    console.log('🧹 [RESET] Detectado! Limpando dados da sessão...');
+    const pathsToClean = ['./data/auth_info_baileys', 'data/auth_info_baileys', './auth_info_baileys'];
+    
+    pathsToClean.forEach(p => {
+      try {
+        if (fs.existsSync(p)) {
+          fs.rmSync(p, { recursive: true, force: true });
+          console.log(`   ✅ Pasta removida: ${p}`);
+        }
+      } catch (e) {
+        console.log(`   ❌ Erro ao remover ${p}: ${e.message}`);
+      }
+    });
+  }
+
+  const sessionDir = 'data/auth_info_baileys';
+  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const { version } = await fetchLatestBaileysVersion();
+
+  console.log(`📡 Versão do WhatsApp Web: ${version.join('.')}`);
+  console.log('==================================================\n');
 
   const sock = makeWASocket({
     version,
@@ -93,7 +123,8 @@ async function connectToWhatsApp() {
     logger: pino({ level: 'silent' }),
     browser: ['DSD Transportes', 'Chrome', '20.0.04'],
     generateHighQualityLinkPreview: true,
-    syncFullHistory: false
+    syncFullHistory: false,
+    printQRInTerminal: false // Vamos gerenciar o QR manualmente para ser mais limpo
   });
 
   let isReconnecting = false;
@@ -112,30 +143,44 @@ async function connectToWhatsApp() {
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
+    
     if (qr) {
-      console.log(`\n✅ QR CODE LINK: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)} \n`);
+      console.log('\n==================================================');
+      console.log('📌 NOVO QR CODE GERADO!');
+      console.log('--------------------------------------------------');
+      console.log(`👉 LINK PARA SCAN (Copie e cole no navegador):`);
+      console.log(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
+      console.log('--------------------------------------------------');
       
+      // Gera no terminal
       qrcode.generate(qr, {small: true});
       
+      // Salva em arquivo para visualização fácil
+      await qrcodeImage.toFile('./qrcode.png', qr);
+      console.log('💾 Arquivo "qrcode.png" gerado na raiz.');
+      console.log('==================================================\n');
+
       const envNumber = process.env.PAIRING_NUMBER;
       let phoneNumber = envNumber || "5511963534626";
-      phoneNumber = phoneNumber.replace(/\D/g, ''); // Remove tudo que não for número (+, -, espaços)
+      phoneNumber = phoneNumber.replace(/\D/g, '');
       
       if (!sock.authState.creds.registered && !isReconnecting) {
-          if (!envNumber) {
-              console.log("⚠️ AVISO: Usando número padrão. Configure PAIRING_NUMBER nas variáveis do Railway se este não for o seu número.");
+          console.log(`\n💡 DICA: Se o QR Code não aparecer no log, o link acima é a melhor opção.`);
+          console.log(`🚀 Ou aguarde 30s para o CÓDIGO DE PAREAMENTO aparecer...`);
+          
+          if (!global.pairingTimeout) {
+            global.pairingTimeout = setTimeout(async () => {
+                try {
+                    const code = await sock.requestPairingCode(phoneNumber);
+                    console.log(`\n************************************`);
+                    console.log(`🔥 CÓDIGO PARA PAREAMENTO: ${code}`);
+                    console.log(`👉 Use este código no WhatsApp em 'Conectar com número de telefone'`);
+                    console.log(`************************************\n`);
+                } catch (err) {
+                    console.log("❌ Erro ao gerar código:", err.message);
+                }
+            }, 30000); // Reduzi para 30s para ser mais rápido
           }
-          console.log(`\n⏳ Aguardando 10s para estabilizar e gerar código para: ${phoneNumber}...`);
-          setTimeout(async () => {
-              try {
-                  const code = await sock.requestPairingCode(phoneNumber);
-                  console.log(`\n************************************`);
-                  console.log(`🚀 SEU CÓDIGO DE PAREAMENTO: ${code}`);
-                  console.log(`************************************\n`);
-              } catch (err) {
-                  console.log("❌ Erro ao gerar código:", err.message);
-              }
-          }, 10000);
       }
     }
     if (connection === 'close') {
@@ -182,7 +227,7 @@ async function connectToWhatsApp() {
       }
       const cleanNumber = userJid.split('@')[0];
       
-console.log(`--- EVENTO RECEBIDO ---`);
+      console.log(`--- EVENTO RECEBIDO ---`);
       console.log(`JID (Chat): ${jid}`);
       console.log(`User (Pessoa): ${userJid}`);
       console.log(`Tipo msg: ${JSON.stringify(Object.keys(msg.message))}`);
@@ -266,26 +311,28 @@ console.log(`--- EVENTO RECEBIDO ---`);
 
 
       // COMANDO DE RANKING E INFORMAÇÕES (Apenas Admins/Permitidos)
-      const rankingAllowed = [
-        adminNumber.split('@')[0].slice(-8), 
-        "79526432", 
-        "59316952"
-      ];
-      const isAllowedRanking = rankingAllowed.some(num => cleanNumber.endsWith(num));
+      const isAllowedRanking = allowedNumbers.some(num => userJid === num);
 
       if (isAllowedRanking) {
         const [cmd, ...args] = command.split(' ');
         
         if (cmd === 'ranking') {
           const mesAtual = dayjs().format('MM-YYYY');
-          const subCommand = args[0] || 'motos';
           
+          // ranking [motos/horas/coletas/motores] [equipe/individual]
           let tipo = 'motos';
-          if (['horas', 'extra', 'hora'].includes(subCommand)) tipo = 'horas';
-          if (['coleta', 'coletas'].includes(subCommand)) tipo = 'coletas';
-          if (['motor', 'motores'].includes(subCommand)) tipo = 'motores';
+          let modo = 'individual';
 
-          const rows = await db.getRanking(mesAtual, tipo);
+          // Detecta o tipo
+          if (args.some(a => ['horas', 'extra', 'hora'].includes(a))) tipo = 'horas';
+          else if (args.some(a => ['coleta', 'coletas'].includes(a))) tipo = 'coletas';
+          else if (args.some(a => ['motor', 'motores'].includes(a))) tipo = 'motores';
+
+          // Detecta o modo
+          if (args.some(a => ['equipe', 'equipes', 'time'].includes(a))) modo = 'equipe';
+          if (args.some(a => ['individual', 'pessoa', 'geral'].includes(a))) modo = 'individual';
+
+          const rows = await db.getRanking(mesAtual, tipo, modo);
           
           if (rows.length === 0) {
             await sock.sendMessage(jid, { text: "📭 Nenhum dado para este mês ainda." });
@@ -294,16 +341,21 @@ console.log(`--- EVENTO RECEBIDO ---`);
 
           let title = "🏍️ RANKING DE MOTOS";
           let unit = "motos";
-          let field = "total_motos";
+          let field = `total_${tipo}`;
 
-          if (tipo === 'horas') { title = "🕒 RANKING DE HORAS EXTRAS"; unit = "h extras"; field = "total_horas"; }
-          if (tipo === 'coletas') { title = "📋 RANKING DE COLETAS"; unit = "coletas"; field = "total_coletas"; }
-          if (tipo === 'motores') { title = "⚙️ RANKING DE MOTORES"; unit = "motores"; field = "total_motores"; }
+          if (tipo === 'horas') { title = "🕒 RANKING DE HORAS EXTRAS"; unit = "h extras"; }
+          if (tipo === 'coletas') { title = "📋 RANKING DE COLETAS"; unit = "coletas"; }
+          if (tipo === 'motores') { title = "⚙️ RANKING DE MOTORES"; unit = "motores"; }
 
-          let mRanking = `🏆 *${title}*\n📅 *${dayjs().format('MMMM/YYYY').toUpperCase()}*\n`;
+          const modeTitle = modo === 'equipe' ? "(POR EQUIPE)" : "(INDIVIDUAL)";
+          let mRanking = `🏆 *${title}*\n📊 *${modeTitle}*\n📅 *${dayjs().format('MMMM/YYYY').toUpperCase()}*\n`;
           mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-          const validRows = rows.filter(r => !r.equipe.includes("thids") && !r.equipe.includes("Admin"));
+          const validRows = rows.filter(r => 
+            !r.equipe.toLowerCase().includes("thids") && 
+            !r.equipe.toLowerCase().includes("admin") &&
+            !r.equipe.toLowerCase().includes("bot")
+          );
 
           validRows.forEach((row, index) => {
             let medal = '👤';
@@ -312,11 +364,11 @@ console.log(`--- EVENTO RECEBIDO ---`);
             else if (index === 2) medal = '🥉';
 
             const valor = tipo === 'horas' ? row[field].toFixed(1) : row[field];
-            mRanking += `${medal} *${index + 1}º Lugar:* ${row.equipe}\n`;
-            mRanking += `╰ 👉 *${valor}* ${unit} | 🛣️ *${row.viagens}* viagens\n\n`;
+            mRanking += `${medal} *${index + 1}º:* ${row.equipe}\n`;
+            mRanking += `╰ 👉 *${valor}* ${unit} | 🛣️ *${row.viagens}* viag.\n\n`;
           });
 
-          mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n💡 _Dica: Use "ranking [motos/horas/coletas/motores]"_`;
+          mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n💡 _Dica: "ranking [tipo] equipe"_`;
           await sock.sendMessage(jid, { text: mRanking });
           return;
         }
@@ -422,7 +474,13 @@ console.log(`--- EVENTO RECEBIDO ---`);
       if (!state) return;
       state.lastUpdate = Date.now();
       if (!state.msgKeys) state.msgKeys = [];
-      state.msgKeys.push(msg.key);
+      
+      // FIX: Não adicionamos as mensagens do próprio bot (prompts) ao msgKeys aqui,
+      // pois elas já são adicionadas no sendOrEdit se necessário.
+      // E não adicionamos o Ticket Final (que é enviado sem 'state').
+      if (!msg.key.fromMe) {
+          state.msgKeys.push(msg.key);
+      }
 
       if (command === 'voltar') {
         const steps = ['equipe_saida', 'placa_saida', 'caminhao', 'num_saida', 'destino_saida', 'horario_saida', 'motos', 'coleta', 'motores', 'observacao'];
@@ -593,8 +651,8 @@ case 'motores': {
             finalMsg += `📝 Obs: ${state.data.observacao}\n`;
           }
           finalMsg += `━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Viagem registrada com sucesso!`;
-          const flowKeys = state.msgKeys || [];
-          await sendOrEdit(sock, jid, finalMsg, state);
+          const flowKeys = [...(state.msgKeys || [])];
+          await sendOrEdit(sock, jid, finalMsg); // Não passa 'state' para não incluir esta mensagem na limpeza
           await clearFlow(sock, jid, flowKeys);
           delete states[jid];
           break;

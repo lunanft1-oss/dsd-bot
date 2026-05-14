@@ -138,32 +138,56 @@ function getAllTickets(ddds = []) {
   });
 }
 
-function getRanking(mesAno, tipo = 'motos') {
+function getRanking(mesAno, tipo = 'motos', modo = 'individual') {
   return new Promise((resolve, reject) => {
-    let orderBy = 'total_motos DESC';
-    let selectField = 'SUM(quantidade) as total_motos';
-    
-    if (tipo === 'horas') {
-      orderBy = 'total_horas DESC';
-      selectField = 'SUM(horas_extras) as total_horas';
-    } else if (tipo === 'coletas') {
-      orderBy = 'total_coletas DESC';
-      selectField = 'SUM(coleta) as total_coletas';
-    } else if (tipo === 'motores') {
-      orderBy = 'total_motores DESC';
-      selectField = 'SUM(motores) as total_motores';
-    }
+    let selectField = 'quantidade';
+    if (tipo === 'horas') selectField = 'horas_extras';
+    else if (tipo === 'coletas') selectField = 'coleta';
+    else if (tipo === 'motores') selectField = 'motores';
 
     const query = `
-      SELECT equipe, ${selectField}, COUNT(*) as viagens
+      SELECT equipe, ${selectField} as valor, 1 as viagens
       FROM tickets 
       WHERE data LIKE ? AND tipo = 'SAIDA'
-      GROUP BY equipe
-      ORDER BY ${orderBy}
     `;
+
     db.all(query, [`%${mesAno}`], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
+      if (err) return reject(err);
+
+      if (modo === 'equipe') {
+        // Agrupamento por equipe exata (string completa)
+        const aggregated = rows.reduce((acc, row) => {
+          const key = row.equipe || 'Sem Equipe';
+          if (!acc[key]) acc[key] = { equipe: key, total: 0, viagens: 0 };
+          acc[key].total += row.valor || 0;
+          acc[key].viagens += 1;
+          return acc;
+        }, {});
+        const result = Object.values(aggregated).sort((a, b) => b.total - a.total);
+        // Mapeia de volta para o formato esperado pelo index.js
+        resolve(result.map(r => ({
+          equipe: r.equipe,
+          viagens: r.viagens,
+          [`total_${tipo}`]: r.total
+        })));
+      } else {
+        // Agrupamento INDIVIDUAL (quebra a string por vírgula)
+        const aggregated = {};
+        rows.forEach(row => {
+          const nomes = (row.equipe || '').split(',').map(n => n.trim()).filter(n => n);
+          nomes.forEach(nome => {
+            if (!aggregated[nome]) aggregated[nome] = { equipe: nome, total: 0, viagens: 0 };
+            aggregated[nome].total += row.valor || 0;
+            aggregated[nome].viagens += 1;
+          });
+        });
+        const result = Object.values(aggregated).sort((a, b) => b.total - a.total);
+        resolve(result.map(r => ({
+          equipe: r.equipe,
+          viagens: r.viagens,
+          [`total_${tipo}`]: r.total
+        })));
+      }
     });
   });
 }
@@ -172,19 +196,30 @@ function getColaboradorStats(nome, mesAno) {
   return new Promise((resolve, reject) => {
     const query = `
       SELECT 
-        equipe,
-        SUM(quantidade) as total_motos,
-        SUM(coleta) as total_coletas,
-        SUM(motores) as total_motores,
-        SUM(horas_extras) as total_horas,
-        COUNT(*) as total_viagens
+        quantidade,
+        coleta,
+        motores,
+        horas_extras
       FROM tickets
-      WHERE (equipe LIKE ? OR solicitante LIKE ?) AND data LIKE ?
-      GROUP BY equipe
+      WHERE (equipe LIKE ? OR solicitante LIKE ?) AND data LIKE ? AND tipo = 'SAIDA'
     `;
-    db.get(query, [`%${nome}%`, `%${nome}%`, `%${mesAno}`], (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+    db.all(query, [`%${nome}%`, `%${nome}%`, `%${mesAno}`], (err, rows) => {
+      if (err) return reject(err);
+      if (!rows || rows.length === 0) return resolve(null);
+
+      const stats = rows.reduce((acc, row) => {
+        acc.total_motos += row.quantidade || 0;
+        acc.total_coletas += row.coleta || 0;
+        acc.total_motores += row.motores || 0;
+        acc.total_horas += row.horas_extras || 0;
+        acc.total_viagens += 1;
+        return acc;
+      }, { total_motos: 0, total_coletas: 0, total_motores: 0, total_horas: 0, total_viagens: 0 });
+
+      resolve({
+        equipe: nome,
+        ...stats
+      });
     });
   });
 }

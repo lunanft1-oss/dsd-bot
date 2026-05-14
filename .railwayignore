@@ -1,8 +1,0 @@
-node_modules
-auth_info_baileys
-data
-*.png
-*.pdf
-logistica.db
-viagens.db
-.env
