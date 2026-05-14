@@ -26,6 +26,8 @@ console.log('🏁 DSD BOT: INICIANDO PROCESSO...');
 console.log('******************************************');
 
 const states = {};
+const msgCache = new Set();
+
 // NÚMEROS AUTORIZADOS (Admin e Gestores)
 const adminNumber = "5511963534626@s.whatsapp.net";
 const allowedNumbers = [
@@ -179,7 +181,7 @@ async function connectToWhatsApp() {
                 } catch (err) {
                     console.log("❌ Erro ao gerar código:", err.message);
                 }
-            }, 30000); // Reduzi para 30s para ser mais rápido
+            }, 10000); // Reduzi para 10s para ser mais rápido
           }
       }
     }
@@ -221,6 +223,18 @@ async function connectToWhatsApp() {
 
       console.log(`📡 Evento de mensagem [${type}] de: ${userJid}`);
       
+      // CACHE DE MENSAGENS PARA EVITAR DUPLICIDADE
+      const msgId = msg.key.id;
+      if (msgCache.has(msgId)) {
+          console.log(`♻️ Ignorando mensagem duplicada: ${msgId}`);
+          return;
+      }
+      msgCache.add(msgId);
+      if (msgCache.size > 500) {
+          const first = msgCache.values().next().value;
+          msgCache.delete(first);
+      }
+
       if (!msg.message) {
           console.log("ℹ️ Mensagem sem conteúdo.");
           return;
@@ -310,28 +324,31 @@ async function connectToWhatsApp() {
       }
 
 
-      // COMANDO DE RANKING E INFORMAÇÕES (Apenas Admins/Permitidos)
-      const isAllowedRanking = allowedNumbers.some(num => userJid === num);
+      if (command === 'resumo') {
+        const ddds = getStateDDDs(userJid);
+        const rows = await db.getReport('dia', ddds);
+        await sock.sendMessage(jid, { text: tickets.formatReport(rows, 'Hoje') });
+        return;
+      }
 
+      // COMANDO DE RANKING E INFORMAÇÕES (Prioridade sobre o fluxo)
+      const isAllowedRanking = allowedNumbers.some(num => userJid === num);
       if (isAllowedRanking) {
         const [cmd, ...args] = command.split(' ');
         
         if (cmd === 'ranking') {
           const mesAtual = dayjs().format('MM-YYYY');
-          
-          // ranking [motos/horas/coletas/motores] [equipe/individual]
           let tipo = 'motos';
           let modo = 'individual';
 
-          // Detecta o tipo
           if (args.some(a => ['horas', 'extra', 'hora'].includes(a))) tipo = 'horas';
           else if (args.some(a => ['coleta', 'coletas'].includes(a))) tipo = 'coletas';
           else if (args.some(a => ['motor', 'motores'].includes(a))) tipo = 'motores';
 
-          // Detecta o modo
           if (args.some(a => ['equipe', 'equipes', 'time'].includes(a))) modo = 'equipe';
           if (args.some(a => ['individual', 'pessoa', 'geral'].includes(a))) modo = 'individual';
 
+          console.log(`📊 Consultando Ranking: ${mesAtual}, Tipo: ${tipo}, Modo: ${modo}`);
           const rows = await db.getRanking(mesAtual, tipo, modo);
           
           if (rows.length === 0) {
@@ -351,11 +368,10 @@ async function connectToWhatsApp() {
           let mRanking = `🏆 *${title}*\n📊 *${modeTitle}*\n📅 *${dayjs().format('MMMM/YYYY').toUpperCase()}*\n`;
           mRanking += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-          const validRows = rows.filter(r => 
-            !r.equipe.toLowerCase().includes("thids") && 
-            !r.equipe.toLowerCase().includes("admin") &&
-            !r.equipe.toLowerCase().includes("bot")
-          );
+          const validRows = rows.filter(r => {
+            const eq = (r.equipe || '').toLowerCase();
+            return !eq.includes("thids") && !eq.includes("admin") && !eq.includes("bot");
+          });
 
           validRows.forEach((row, index) => {
             let medal = '👤';
@@ -363,7 +379,7 @@ async function connectToWhatsApp() {
             else if (index === 1) medal = '🥈';
             else if (index === 2) medal = '🥉';
 
-            const valor = tipo === 'horas' ? row[field].toFixed(1) : row[field];
+            const valor = tipo === 'horas' ? (row[field] || 0).toFixed(1) : (row[field] || 0);
             mRanking += `${medal} *${index + 1}º:* ${row.equipe}\n`;
             mRanking += `╰ 👉 *${valor}* ${unit} | 🛣️ *${row.viagens}* viag.\n\n`;
           });
@@ -404,6 +420,7 @@ async function connectToWhatsApp() {
         }
       }
 
+      // COMANDOS GERAIS
       if (command === 'apagar' || command === 'excluir' || command === 'limpar') {
         deleteMsgAsync(sock, jid, msg.key);
         delete states[jid];
@@ -460,13 +477,6 @@ async function connectToWhatsApp() {
         } catch (err) {
           console.error(`❌ Erro ao enviar mensagem:`, err.message);
         }
-        return;
-      }
-
-      if (command === 'resumo') {
-        const ddds = getStateDDDs(userJid);
-        const rows = await db.getReport('dia', ddds);
-        await sock.sendMessage(jid, { text: tickets.formatReport(rows, 'Hoje') });
         return;
       }
 

@@ -151,20 +151,26 @@ function getRanking(mesAno, tipo = 'motos', modo = 'individual') {
       WHERE data LIKE ? AND tipo = 'SAIDA'
     `;
 
+    console.log(`🔍 [DB] getRanking Query: ${query.replace('?', "'%" + mesAno + "'")}`);
+
     db.all(query, [`%${mesAno}`], (err, rows) => {
       if (err) return reject(err);
+      
+      console.log(`🔍 [DB] getRanking retornou ${rows.length} registros.`);
 
       if (modo === 'equipe') {
-        // Agrupamento por equipe exata (string completa)
+        // Agrupamento por equipe exata (string completa), limpando espaços extras
         const aggregated = rows.reduce((acc, row) => {
-          const key = row.equipe || 'Sem Equipe';
+          const key = (row.equipe || 'Sem Equipe').trim();
           if (!acc[key]) acc[key] = { equipe: key, total: 0, viagens: 0 };
           acc[key].total += row.valor || 0;
           acc[key].viagens += 1;
           return acc;
         }, {});
+
         const result = Object.values(aggregated).sort((a, b) => b.total - a.total);
-        // Mapeia de volta para o formato esperado pelo index.js
+        console.log(`🔍 [DB] Ranking Equipe Processado: ${result.length} equipes encontradas.`);
+        
         resolve(result.map(r => ({
           equipe: r.equipe,
           viagens: r.viagens,
