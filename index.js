@@ -211,6 +211,13 @@ async function connectToWhatsApp() {
       const botNumber = sock.user.id.split(':')[0];
       console.log(`🚀 DSD Bot TURBO + RANKING ONLINE`);
       console.log(`🤖 Conectado como: ${botNumber}`);
+      
+      // Notifica o admin que o bot subiu
+      try {
+        await sock.sendMessage(adminNumber, { text: `✅ *DSD BOT ONLINE!* \n🚀 O sistema foi reiniciado e está pronto para uso.\n\nDigite *menu* para começar.` });
+      } catch (e) {
+        console.log("⚠️ Não foi possível enviar msg de início (normal se for a 1ª vez).");
+      }
     }
   });
 
@@ -235,16 +242,15 @@ async function connectToWhatsApp() {
           msgCache.delete(first);
       }
 
-      if (!msg.message) {
-          console.log("ℹ️ Mensagem sem conteúdo.");
-          return;
-      }
-      const cleanNumber = userJid.split('@')[0];
+      if (!msg.message) return;
+      
+      // LIMPEZA DE JID (Remove sufixos :1, :2 etc)
+      const senderJid = userJid.split(':')[0].split('@')[0] + '@s.whatsapp.net';
+      const cleanNumber = senderJid.split('@')[0];
       
       console.log(`--- EVENTO RECEBIDO ---`);
       console.log(`JID (Chat): ${jid}`);
-      console.log(`User (Pessoa): ${userJid}`);
-      console.log(`Tipo msg: ${JSON.stringify(Object.keys(msg.message))}`);
+      console.log(`Sender (Pessoa): ${senderJid}`);
       const rawText = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.buttonsResponseMessage?.selectedButtonId || msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || '';
       console.log(`Texto: "${rawText}"`);
       console.log(`-----------------------`);
@@ -339,7 +345,7 @@ async function connectToWhatsApp() {
       }
 
       // COMANDO DE RANKING E INFORMAÇÕES (Prioridade sobre o fluxo)
-      const isAllowedRanking = allowedNumbers.some(num => userJid === num);
+      const isAllowedRanking = allowedNumbers.some(num => senderJid.includes(num.split('@')[0]));
       if (isAllowedRanking) {
         const [cmd, ...args] = command.split(' ');
         
@@ -467,14 +473,14 @@ async function connectToWhatsApp() {
 
       if (command === 'novo') {
         try {
-          const equipeFiltrada = getEquipeByDDD(userJid);
+          const equipeFiltrada = getEquipeByDDD(senderJid);
           const solicitante = msg.pushName || "Motorista";
           states[jid] = { 
             step: 'equipe_saida', 
             lastUpdate: Date.now(), 
             equipeFiltrada, 
             msgKeys: [msg.key],
-            data: { tipo: 'SAIDA', solicitante, sender_jid: userJid } 
+            data: { tipo: 'SAIDA', solicitante, sender_jid: senderJid } 
           };
           let m = `🚩 *REGISTRO DE VIAGEM*\n👤 Responsável: *${solicitante}*\n\n👥 Selecione os membros da equipe:\n`;
           equipeFiltrada.forEach((n, i) => m += `${i + 1}. ${n}\n`);
