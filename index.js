@@ -247,16 +247,24 @@ async function connectToWhatsApp() {
         console.log("ℹ️ Mensagem sem conteúdo (status, leitura, etc).");
         return;
       }
-      
+      let extractedMsg = msg.message;
+      if (extractedMsg?.ephemeralMessage) {
+        extractedMsg = extractedMsg.ephemeralMessage.message;
+      } else if (extractedMsg?.viewOnceMessage) {
+        extractedMsg = extractedMsg.viewOnceMessage.message;
+      } else if (extractedMsg?.viewOnceMessageV2) {
+        extractedMsg = extractedMsg.viewOnceMessageV2.message;
+      }
+
       // Extração de texto robusta (unificada)
       let text = (
-        msg.message.conversation || 
-        msg.message.extendedTextMessage?.text || 
-        msg.message.buttonsResponseMessage?.selectedButtonId || 
-        msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || 
-        msg.message.templateButtonReplyMessage?.selectedId ||
-        msg.message.imageMessage?.caption || 
-        msg.message.videoMessage?.caption || 
+        extractedMsg?.conversation || 
+        extractedMsg?.extendedTextMessage?.text || 
+        extractedMsg?.buttonsResponseMessage?.selectedButtonId || 
+        extractedMsg?.listResponseMessage?.singleSelectReply?.selectedRowId || 
+        extractedMsg?.templateButtonReplyMessage?.selectedId ||
+        extractedMsg?.imageMessage?.caption || 
+        extractedMsg?.videoMessage?.caption || 
         ""
       ).trim();
       
