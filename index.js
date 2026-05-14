@@ -263,17 +263,26 @@ async function connectToWhatsApp() {
         console.log("⚠️ Não foi possível marcar como lida (normal para @lid).");
       }
 
-      const text = (
+      let text = (
         msg.message.conversation || 
         msg.message.extendedTextMessage?.text || 
         msg.message.buttonsResponseMessage?.selectedButtonId ||
-        msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+        msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || 
         ""
       ).trim();
+      
       const caption = (msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || "").toLowerCase().trim();
-      const command = (text.toLowerCase().trim() || caption);
+      let command = (text.toLowerCase().trim() || caption);
 
-      console.log(`📌 Command detectado: "${command}"`);
+      // MAPEAMENTO DE NÚMEROS DO MENU PARA COMANDOS
+      if (command === '1') command = 'novo';
+      if (command === '2') command = 'resumo';
+      if (command === '3') command = 'pdf';
+      if (command === '4') command = 'ranking';
+      if (command === '5') command = 'ranking horas';
+      if (command === '6') command = 'info';
+
+      console.log(`📌 Command detectado: "${command}" (Original: "${text}")`);
 
       // LISTA DE FRASES QUE O BOT USA (para evitar que ele responda a si mesmo)
       const botPhrases = [
@@ -315,9 +324,11 @@ async function connectToWhatsApp() {
 
       // Se for fromMe e não for um comando inicial, só processamos se houver um estado ativo
       const primaryCommand = command.split(' ')[0];
-      if (msg.key.fromMe && !['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking', 'info'].includes(primaryCommand)) {
+      const validCommands = ['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking', 'info', 'voltar', 'cancelar', 'sair'];
+      
+      if (msg.key.fromMe && !validCommands.includes(primaryCommand)) {
         if (!states[jid]) {
-          console.log("ℹ️ Ignorando mensagem do dono (sem estado ativo e não é comando).");
+          console.log(`ℹ️ Ignorando mensagem do dono: "${command}" (sem estado e não é comando).`);
           return;
         }
         console.log("✅ Processando resposta do dono (interação no fluxo).");
