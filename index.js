@@ -308,30 +308,26 @@ async function connectToWhatsApp() {
         normalizedText.includes(phrase.replace(/\*/g, '').toLowerCase())
       );
 
-      // Se a mensagem for do bot (fromMe) e contiver frases do sistema, ignoramos
-      console.log(`🔍 Verificando: fromMe=${msg.key.fromMe}, isBotPrompt=${isBotPrompt}, state=${!!states[jid]}`);
-      
+      // 1. SE FOR UM PROMPT DO BOT (MENSAGEM AUTOMÁTICA), IGNORA SEMPRE
       if (msg.key.fromMe && isBotPrompt) {
-        console.log("🤖 Ignorando prompt enviado pelo próprio bot.");
         return;
       }
 
-      // Se for uma mensagem muito longa e for fromMe, provavelmente é um menu sincronizado, ignoramos
-      if (msg.key.fromMe && text.length > 100 && (text.includes('\n') || isBotPrompt)) {
-        console.log("🤖 Ignorando mensagem longa/menu sincronizada do dono.");
+      // 2. COMANDOS DE TESTE E EMERGÊNCIA (FUNCIONAM SEMPRE)
+      if (command === 'ping') {
+        await sock.sendMessage(jid, { text: '🏓 PONG! O bot está online e processando comandos.' });
         return;
       }
 
-      // Se for fromMe e não for um comando inicial, só processamos se houver um estado ativo
-      const primaryCommand = command.split(' ')[0];
+      // 3. COMANDOS INICIAIS (NOVO, MENU, ETC) - PRIORIDADE MÁXIMA
       const validCommands = ['novo', 'resumo', 'pdf', 'menu', 'gerar', 'ajuda', 'dsd', 'ranking', 'info', 'voltar', 'cancelar', 'sair'];
-      
-      if (msg.key.fromMe && !validCommands.includes(primaryCommand)) {
-        if (!states[jid]) {
-          console.log(`ℹ️ Ignorando mensagem do dono: "${command}" (sem estado e não é comando).`);
-          return;
-        }
-        console.log("✅ Processando resposta do dono (interação no fluxo).");
+      const primaryCommand = command.split(' ')[0];
+      const isInitialCommand = validCommands.includes(primaryCommand);
+
+      // 4. SE FOR DO DONO E NÃO FOR UM COMANDO NEM ESTIVER NO MEIO DE UM FLUXO, IGNORA
+      if (msg.key.fromMe && !isInitialCommand && !states[jid]) {
+        console.log(`ℹ️ Ignorando mensagem do dono (não é comando e sem estado ativo).`);
+        return;
       }
 
 
