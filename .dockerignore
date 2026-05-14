@@ -1,9 +1,0 @@
-node_modules
-data
-auth_info_baileys
-*.png
-*.pdf
-*.db
-.env
-.git
-.railway
