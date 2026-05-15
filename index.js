@@ -273,6 +273,7 @@ async function connectToWhatsApp() {
       let command = text.toLowerCase().trim();
 
       console.log(`\n📩 [${type}] de ${cleanNumber}: "${text}"`);
+      console.log("DEBUG MESSAGE DUMP:", JSON.stringify(msg.message));
       if (msg.key.fromMe) console.log(`👤 (Mensagem enviada por você)`);
 
       // LIBERADO PARA TESTE: Aceita qualquer um
