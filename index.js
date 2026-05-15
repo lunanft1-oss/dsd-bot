@@ -275,8 +275,13 @@ async function connectToWhatsApp() {
       
       let command = text.toLowerCase().trim();
 
+      // Se for mensagem do sistema (protocolo) ou não tiver texto, ignorar silenciosamente
+      if (extractedMsg?.protocolMessage || extractedMsg?.senderKeyDistributionMessage || !command) {
+        return;
+      }
+
       console.log(`\n📩 [${type}] de ${cleanNumber}: "${text}"`);
-      console.log("DEBUG MESSAGE DUMP:", JSON.stringify(msg.message));
+      // console.log("DEBUG MESSAGE DUMP:", JSON.stringify(msg.message));
       if (msg.key.fromMe) console.log(`👤 (Mensagem enviada por você)`);
 
       // LIBERADO PARA TESTE: Aceita qualquer um
