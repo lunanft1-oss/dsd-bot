@@ -222,6 +222,8 @@ async function connectToWhatsApp() {
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     try {
+      if (type !== 'notify') return; // Ignora mensagens históricas sendo sincronizadas
+      
       console.log(`📡 Novo evento de mensagem (Tipo: ${type}) - Total: ${messages.length}`);
       const msg = messages[0];
       const rawJid = msg.key.remoteJid;
