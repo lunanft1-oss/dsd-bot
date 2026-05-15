@@ -115,6 +115,9 @@ async function connectToWhatsApp() {
   }
 
   const sessionDir = 'data/auth_info_baileys';
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+  }
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const { version } = await fetchLatestBaileysVersion();
 
